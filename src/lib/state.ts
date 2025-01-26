@@ -1,11 +1,17 @@
 import * as k8s from "@kubernetes/client-node";
 import type { KubernetesObject } from "@kubernetes/client-node";
 import type { Provider } from "./provider.js";
+import type { Signal } from "./reactive.js";
+
+type StateEntry = {
+  template: Signal<KubernetesObject>;
+  resource: Signal<KubernetesObject>;
+};
 
 export class State {
   private _state: Map<
     Provider,
-    { namespaces: Set<string>; resources: Map<string, KubernetesObject> }
+    { namespaces: Set<string>; resources: Map<string, StateEntry> }
   >;
   private subscribers: Set<Function>;
 
@@ -24,13 +30,14 @@ export class State {
     this.subscribers.forEach((fn) => fn(namespace, provider));
   }
 
-  public add(res: KubernetesObject, provider: Provider) {
+  public add(entry: StateEntry, provider: Provider) {
     if (!this._state.has(provider)) {
       this._state.set(provider, {
         namespaces: new Set(),
         resources: new Map(),
       });
     }
+    const res = entry.template.value;
     const s = this._state.get(provider);
     if (!s.namespaces.has(res.metadata.namespace)) {
       this.notify(res.metadata.namespace, provider);
@@ -38,7 +45,7 @@ export class State {
     s.namespaces.add(res.metadata.namespace);
     s.resources.set(
       `${res.apiVersion}/${res.kind}/${res.metadata.namespace}/${res.metadata.name}`,
-      res
+      entry
     );
   }
 
@@ -48,5 +55,9 @@ export class State {
       .resources.delete(
         `${res.apiVersion}/${res.kind}/${res.metadata.namespace}/${res.metadata.name}`
       );
+  }
+
+  get state() {
+    return this._state;
   }
 }

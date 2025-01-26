@@ -12,13 +12,19 @@ class ReactiveContext {
     }
   }
 
-  // Notify all dependencies when a signal changes
-  notify() {
-    this.dependencies.forEach((signal) => {
-      signal.notify();
-    });
-  }
+  // // Notify all dependencies when a signal changes
+  // notify() {
+  //   this.dependencies.forEach((signal) => {
+  //     signal.notify();
+  //   });
+  // }
 }
+
+export type Signal<T> = {
+  oldValue: T | null;
+  value: T;
+  subscribe: (Function) => void;
+};
 
 export function createSignal<T>(initialValue: T) {
   let _value = initialValue;
@@ -46,51 +52,37 @@ export function createSignal<T>(initialValue: T) {
     subscribe: (subscriber) => {
       subscribers.add(subscriber);
     },
-  };
+  } as Signal<T>;
 }
 
-class Signal<T> {
-  private _value: T;
-  public subscribers: Set<() => void> = new Set(); // To hold subscribers (reactive functions)
+// class Signal<T> {
+//   private _value: T;
+//   public subscribers: Set<() => void> = new Set(); // To hold subscribers (reactive functions)
 
-  constructor(initialValue: T) {
-    this._value = initialValue;
-  }
+//   constructor(initialValue: T) {
+//     this._value = initialValue;
+//   }
 
-  // Getter for the signal value
-  get(): T {
-    if (currentContext) {
-      currentContext.track(this); // Track this signal in the current context
-    }
-    return this._value;
-  }
+//   // Notify all subscribers
+//   private notify() {
+//     this.subscribers.forEach((subscriber) => subscriber());
+//   }
 
-  // Setter for the signal value
-  set(newValue: T) {
-    this._value = newValue;
-    this.notify(); // Notify subscribers when the value changes
-  }
+//   subscribe(subscriber) {
+//     this.subscribers.add(subscriber);
+//   }
 
-  // Notify all subscribers
-  notify() {
-    this.subscribers.forEach((subscriber) => subscriber());
-  }
-
-  subscribe(subscriber) {
-    this.subscribers.add(subscriber);
-  }
-
-  get value() {
-    if (currentContext) {
-      currentContext.track(this); // Track this signal in the current context
-    }
-    return this._value;
-  }
-  set value(newValue: T) {
-    this._value = newValue;
-    this.notify(); // Notify subscribers when the value changes
-  }
-}
+//   get value() {
+//     if (currentContext) {
+//       currentContext.track(this); // Track this signal in the current context
+//     }
+//     return this._value;
+//   }
+//   set value(newValue: T) {
+//     this._value = newValue;
+//     this.notify(); // Notify subscribers when the value changes
+//   }
+// }
 
 // Create a reactive effect
 export function effect(fn: () => void) {
