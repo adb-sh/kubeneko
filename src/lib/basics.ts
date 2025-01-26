@@ -1,101 +1,188 @@
 import * as k8s from "@kubernetes/client-node";
-import { effect, createSignal } from "./reative.js";
+import { effect, createSignal } from "./reactive.js";
 import type { KubernetesObject } from "@kubernetes/client-node";
+import { z, ZodSchema } from "zod";
+import merge from "deepmerge";
+import dotenv from "dotenv";
+import type { Provider } from "./provider.js";
+import { State } from "./state.js";
 
-export type K8sResource =
-  | k8s.V1Pod
-  | k8s.V1Service
-  | k8s.V1Deployment
-  | k8s.V1ReplicaSet
-  | k8s.V1StatefulSet
-  | k8s.V1DaemonSet
-  | k8s.V1Job
-  | k8s.V1CronJob
-  | k8s.V1ConfigMap
-  | k8s.V1Secret
-  | k8s.V1PersistentVolume
-  | k8s.V1PersistentVolumeClaim
-  | k8s.V1Namespace
-  | k8s.V1Ingress
-  | k8s.V1NetworkPolicy
-  // | k8s.V1Event
-  | k8s.V1LimitRange
-  | k8s.V1ResourceQuota
-  | k8s.V1PodTemplate;
+dotenv.config();
+const stateId = process.env.KUBENEKO_STATE_ID;
+const group = "kubeneko.adb.sh";
 
-export const createTemplate = (getManifest: () => KubernetesObject) => {
-  const template = createSignal<K8sResource | null>(null);
+const state = new State();
+
+state.subscribeToNewNamespace((namespace, provider) => {
+  provider.watch.watch(
+    `/api/v1/namespaces/${namespace}/events`,
+    {},
+    (type, event) => {
+      console.log(`Type: ${type}`);
+      console.log(`Event: ${JSON.stringify(event, null, 2)}`);
+    },
+    (err) => {
+      console.error("Error watching events:", err);
+    }
+  );
+});
+
+export const createTemplate = <T extends KubernetesObject | KubernetesObject>(
+  getManifest: () => T
+) => {
+  const template = createSignal<T | null>(null);
   effect(() => {
-    const _template = getManifest();
+    const _template = merge(getManifest(), {
+      metadata: {
+        labels: {
+          "app.kubernetes.io/managed-by": "kubeneko",
+        },
+        annotations: {
+          [`${group}/state-id`]: stateId,
+        },
+      },
+    }) as T;
     console.log(
       `template updated:`,
       _template.apiVersion,
-      _template.kind,
       _template.metadata?.namespace,
+      _template.kind,
       _template.metadata?.name
     );
     template.value = _template;
   });
-  return template as ReturnType<typeof createSignal<K8sResource>>;
+  return template as ReturnType<typeof createSignal<T>>;
 };
 
 const applyTemplate = async (
-  template: K8sResource,
-  { provider }: { provider: k8s.KubernetesObjectApi }
+  template: KubernetesObject,
+  { provider }: { provider: Provider }
 ) => {
-  const active =
-    template.metadata?.annotations?.["kubeneko/active"] !== "false";
-  if (active) {
-    try {
-      await provider.read(template);
-      return await provider.patch(template);
-    } catch (e) {
-      return await provider.create(template);
+  const current = await provider.objectApi.read(template).catch(() => null);
+
+  if (current) {
+    if (
+      current.metadata.labels?.["app.kubernetes.io/managed-by"] !== "kubeneko"
+    ) {
+      throw new Error(
+        "Resource already exists and is not managed by kubeneko!"
+      );
     }
-  } else {
+    if (current.metadata.annotations?.[`${group}/state-id`] !== stateId) {
+      throw new Error("Resource is managed by another kubeneko state!");
+    }
+  }
+
+  const active =
+    template.metadata?.annotations?.[`${group}/active`] !== "false";
+
+  if (active && current) {
     try {
-      await provider.read(template);
-      return await provider.delete(template);
+      if (current) {
+        const res = await provider.objectApi.replace(template);
+        state.add(res, provider);
+        return res;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  } else if (active) {
+    try {
+      const res = await provider.objectApi.create(template);
+      state.add(res, provider);
+      return res;
+    } catch (e) {
+      console.error(e);
+    }
+  } else if (current) {
+    try {
+      const res = await provider.objectApi.delete(template);
+      state.remove(res, provider);
+      return null;
     } catch (e) {
       console.error(e);
     }
   }
 };
 
-export const createResource = async <T>(
-  getTemplate: () => ReturnType<typeof createTemplate>,
-  { provider }: { provider: k8s.KubernetesObjectApi }
+export const createResource = <T extends KubernetesObject | KubernetesObject>(
+  getTemplate: () => ReturnType<typeof createTemplate<T>>,
+  { provider }: { provider: Provider }
 ) => {
-  const template = getTemplate();
-  const resource = createSignal(
-    (await applyTemplate(template.value, { provider })) as any
-  );
+  return new Promise<ReturnType<typeof createSignal<T>>>((resolve) => {
+    const template = getTemplate();
+    const resource = createSignal(null);
 
-  effect(async () => {
-    const oldTemp = template.oldValue;
-    const newTemp = template.value;
+    effect(async () => {
+      const oldTemp = template.oldValue;
+      const newTemp = template.value;
 
-    if (!oldTemp) {
-      resource.value = await applyTemplate(newTemp, { provider });
-      return;
-    }
+      if (!oldTemp) {
+        resource.value = await applyTemplate(newTemp, { provider });
+        resolve(resource);
+        return;
+      }
 
-    if (
-      oldTemp.apiVersion !== newTemp.apiVersion ||
-      oldTemp.kind !== newTemp.kind
-    ) {
-      throw Error("cannot transform api version!");
-    }
-    if (
-      oldTemp.metadata.name !== newTemp.metadata.name ||
-      oldTemp.metadata.namespace !== newTemp.metadata.namespace
-    ) {
-      await provider.delete(oldTemp);
-      resource.value = await applyTemplate(newTemp, { provider });
-    } else {
-      resource.value = await applyTemplate(newTemp, { provider });
-    }
+      if (
+        oldTemp.apiVersion !== newTemp.apiVersion ||
+        oldTemp.kind !== newTemp.kind
+      ) {
+        throw Error("cannot transform api version!");
+      }
+      if (
+        oldTemp.metadata.name !== newTemp.metadata.name ||
+        oldTemp.metadata.namespace !== newTemp.metadata.namespace
+      ) {
+        const res = await provider.objectApi.delete(oldTemp);
+        state.remove(res, provider);
+        resource.value = await applyTemplate(newTemp, { provider });
+      } else {
+        resource.value = await applyTemplate(newTemp, { provider });
+      }
+    });
   });
-
-  return resource;
 };
+
+// export const createComponent = async <T>(
+//   name: string,
+//   schema: ZodSchema<T>,
+//   getTemplates: (
+//     data: ReturnType<typeof createSignal<T>>
+//   ) => Array<ReturnType<typeof createTemplate>>,
+//   { provider }: { provider: Provider }
+// ) => {
+//   const group = "kubeneko.adb.sh";
+//   const crd = await createResource(
+//     () => {
+//       return createTemplate(() => ({
+//         apiVersion: "apiextensions.k8s.io/v1",
+//         kind: "CustomResourceDefinition",
+//         metadata: {
+//           name: `${name}.${group}`,
+//         },
+//         spec: {
+//           group: group,
+//           scope: "Namespaced",
+//           names: {
+//             plural: `${name}s`,
+//             singular: name,
+//             kind: `${name.charAt(0).toUpperCase()}${name.slice(1)}`,
+//           },
+//           version: [
+//             {
+//               name: "v1",
+//               served: true,
+//               storage: true,
+//               schema: {
+//                 openAPIV3Schema: schema,
+//               },
+//             },
+//           ],
+//         },
+//       }));
+//     },
+//     { provider }
+//   );
+
+//   // return resource;
+// };

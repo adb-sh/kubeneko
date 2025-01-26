@@ -12,7 +12,10 @@
     "typescript": "~5.7.2"
   },
   "dependencies": {
-    "@kubernetes/client-node": "^1.0.0"
+    "@kubernetes/client-node": "^1.0.0",
+    "deepmerge": "^4.3.1",
+    "dotenv": "^16.4.7",
+    "zod": "^3.24.1"
   },
   "engines": {
     "node": ">=18"
