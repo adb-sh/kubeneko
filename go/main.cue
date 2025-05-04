@@ -46,7 +46,6 @@ let bucket = #Bucket & {
   }
 }
 
-foo: "bar"
 
 config: {
   resources: {
@@ -54,10 +53,16 @@ config: {
     Subnet: subnet,
     Bucket: bucket
   },
-  foo2: foo
+  foo2: nested.foo
 }
-bar: foo
-bar2: "yeee" + (foo + "asd" + bar)
+
+nested: {
+  foo: "bar"
+}
+
+bar: nested.foo
+bar2: "yeee" + (nested.foo + "asd") + bar
+
 
 _string1: "foo"
 _string2: "bar"
