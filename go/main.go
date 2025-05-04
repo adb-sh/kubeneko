@@ -126,15 +126,17 @@ func pathsByOp(op cue.Op, node cue.Value, args []cue.Value, dependencyMap *map[s
 		cue.SubtractOp,
 		cue.MultiplyOp,
 		cue.FloatQuotientOp,
-		cue.InterpolationOp:
+		cue.InterpolationOp,
+		cue.IntQuotientOp,
+		cue.IntRemainderOp,
+		cue.IntDivideOp,
+		cue.IntModuloOp:
 		for _, arg := range args {
 			argOp, argArgs := arg.Expr()
 			if argOp != cue.NoOp {
 				pathsByOp(argOp, arg, argArgs, dependencyMap)
 			}
 		}
-	case cue.IntQuotientOp, cue.IntRemainderOp, cue.IntDivideOp, cue.IntModuloOp:
-		fmt.Println("OPERATOR NOT IMPLEMENTED", op.String())
 	default:
 		fmt.Printf("  unkown op: %s", op)
 		fmt.Println()
