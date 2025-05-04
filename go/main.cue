@@ -45,7 +45,7 @@ let bucket = #Bucket & {
   }
 }
 
-foo: "bar"
+foo: baa: "bar"
 
 config: {
   resources: [
@@ -55,5 +55,10 @@ config: {
   ],
   foo2: foo
 }
-bar: foo
-bar2: foo + "asd"
+bar: foo.baa
+bar2: foo.baa + "asd"
+
+
+foo: asd: "dsa"
+foo2: foo.asd
+foo3: foo2 + "-sfdj" + foo.asd
