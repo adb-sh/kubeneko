@@ -34,10 +34,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Lookup the 'config' field and print it out
-	// config := v.LookupPath(cue.ParsePath(""))
-	// fmt.Println(config)
-
 	walk("", v)
 }
 
@@ -46,10 +42,9 @@ func walk(path string, val cue.Value) {
 	for iter.Next() {
 		label := iter.Selector()
 		child := iter.Value()
-		fmt.Printf("Field %s.%s ", path, label)
+		fmt.Printf("Field %s.%s (%s)", path, label, child.Kind())
 		fmt.Println()
 
-		kind := child.Kind()
 		switch child.Kind() {
 		case cue.StructKind:
 			walk(path+"."+label.String(), child)
@@ -62,8 +57,7 @@ func walk(path string, val cue.Value) {
 
 		case cue.StringKind, cue.FloatKind, cue.NumberKind, cue.BoolKind, cue.BytesKind, cue.IntKind:
 			if op, args := child.Expr(); op != cue.NoOp && len(args) > 0 {
-				fmt.Print("  depends on ")
-				fmt.Println(op.String())
+				fmt.Println("  depends on ")
 				paths := pathsByOp(op, child, args)
 				for _, path := range paths {
 					fmt.Print("    ")
@@ -82,7 +76,7 @@ func walk(path string, val cue.Value) {
 		case cue.TopKind:
 			fmt.Println("  top")
 		default:
-			fmt.Printf("  unkown kind: %s", kind)
+			fmt.Printf("  unkown kind")
 			fmt.Println()
 		}
 	}
@@ -92,65 +86,48 @@ func pathsByOp(op cue.Op, node cue.Value, args []cue.Value) [][]cue.Selector {
 	var paths [][]cue.Selector
 	switch op {
 	case cue.NoOp:
-		// fmt.Println("cue.NoOp")
-		// TODO:
+		fmt.Println("    TODO: cue.NoOp")
 
 	case cue.AndOp:
-		// fmt.Println("cue.AndOp")
-		// TODO:
+		fmt.Println("    TODO: cue.AndOp")
 	case cue.OrOp:
-		// fmt.Println("cue.OrOp")
-		// TODO:
+		fmt.Println("    TODO: cue.OrOp")
 
 	case cue.SelectorOp:
 		_, ref := node.ReferencePath()
 		paths = append(paths, ref.Selectors())
 
 	case cue.IndexOp:
-		// fmt.Println("cue.IndexOp")
-		// TODO:
+		fmt.Println("    TODO: cue.IndexOp")
 	case cue.SliceOp:
-		// fmt.Println("cue.SliceOp")
-		// TODO:
+		fmt.Println("    TODO: cue.SliceOp")
 	case cue.CallOp:
-		// fmt.Println("cue.CallOp")
-		// TODO:
+		fmt.Println("    TODO: cue.CallOp")
 
 	case cue.BooleanAndOp:
-		// fmt.Println("cue.BooleanAndOp")
-		// TODO:
+		fmt.Println("    TODO: cue.BooleanAndOp")
 	case cue.BooleanOrOp:
-		// fmt.Println("cue.BooleanOrOp")
-		// TODO:
+		fmt.Println("    TODO: cue.BooleanOrOp")
 
 	case cue.EqualOp:
-		// fmt.Println("cue.EqualOp")
-		// TODO:
+		fmt.Println("    TODO: cue.EqualOp")
 	case cue.NotOp:
-		// fmt.Println("cue.NotOp")
-		// TODO:
+		fmt.Println("    TODO: cue.NotOp")
 	case cue.NotEqualOp:
-		// fmt.Println("cue.NotEqualOp")
-		// TODO:
+		fmt.Println("    TODO: cue.NotEqualOp")
 	case cue.LessThanOp:
-		// fmt.Println("cue.LessThanOp")
-		// TODO:
+		fmt.Println("    TODO: cue.LessThanOp")
 	case cue.LessThanEqualOp:
-		// fmt.Println("cue.LessThanEqualOp")
-		// TODO:
+		fmt.Println("    TODO: cue.LessThanEqualOp")
 	case cue.GreaterThanOp:
-		// fmt.Println("cue.GreaterThanOp")
-		// TODO:
+		fmt.Println("    TODO: cue.GreaterThanOp")
 	case cue.GreaterThanEqualOp:
-		// fmt.Println("cue.GreaterThanEqualOp")
-		// TODO:
+		fmt.Println("    TODO: cue.GreaterThanEqualOp")
 
 	case cue.RegexMatchOp:
-		// fmt.Println("cue.RegexMatchOp")
-		// TODO:
+		fmt.Println("    TODO: cue.RegexMatchOp")
 	case cue.NotRegexMatchOp:
-		// fmt.Println("cue.NotRegexMatchOp")
-		// TODO:
+		fmt.Println("    TODO: cue.NotRegexMatchOp")
 
 	case cue.AddOp:
 		for _, arg := range args {

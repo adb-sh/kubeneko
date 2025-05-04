@@ -2,10 +2,7 @@ module github.com/adb-sh/kubeneko
 
 go 1.23.7
 
-require (
-	cuelang.org/go v0.12.1
-	github.com/pkg/errors v0.9.1
-)
+require cuelang.org/go v0.12.1
 
 require (
 	cuelabs.dev/go/oci/ociregistry v0.0.0-20241125120445-2c00c104c6e1 // indirect
