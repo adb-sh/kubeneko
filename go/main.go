@@ -22,7 +22,7 @@ func main() {
 
 	// Load the package from the current directory.
 	// We don't need to specify a Config in this example.
-	insts := load.Instances([]string{"."}, &load.Config{
+	insts := load.Instances([]string{"./examples/simpleapp"}, &load.Config{
 		Registry: reg,
 	})
 
@@ -33,6 +33,8 @@ func main() {
 	if err := v.Err(); err != nil {
 		log.Fatal(err)
 	}
+
+	fmt.Println(v)
 
 	for path, deps := range makeDepsMap(v) {
 		fmt.Println(path)
@@ -101,6 +103,8 @@ func walkExpr(child cue.Value, dependencyMap *map[string][]cue.Path) {
 
 func pathsByOp(op cue.Op, node cue.Value, args []cue.Value, dependencyMap *map[string][]cue.Path) {
 	switch op {
+	case cue.NoOp:
+		walkExpr(node, dependencyMap)
 	case cue.SelectorOp:
 		_, ref := node.ReferencePath()
 		nodePath := node.Path()
@@ -133,9 +137,7 @@ func pathsByOp(op cue.Op, node cue.Value, args []cue.Value, dependencyMap *map[s
 		cue.IntModuloOp:
 		for _, arg := range args {
 			argOp, argArgs := arg.Expr()
-			if argOp != cue.NoOp {
-				pathsByOp(argOp, arg, argArgs, dependencyMap)
-			}
+			pathsByOp(argOp, arg, argArgs, dependencyMap)
 		}
 	default:
 		fmt.Printf("  unkown op: %s", op)

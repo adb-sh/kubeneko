@@ -21,7 +21,14 @@ import (
   out: #Config
 }
 
+// #Config: {
+//   components?: [...#Component]
+//   resources?: [...#KubeRef]
+// }
+
 #Config: {
-  components?: [...#Component]
+  components?: [Name=string]: #Component & {
+    name: string | Name
+  }
   resources?: [...#KubeRef]
 }
