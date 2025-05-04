@@ -34,130 +34,109 @@ func main() {
 		log.Fatal(err)
 	}
 
-	walk("", v)
+	for path, deps := range makeDepsMap(v) {
+		fmt.Println(path)
+		fmt.Println("  depends on: ")
+		for _, dep := range deps {
+			fmt.Print("    ")
+			fmt.Print(dep.String())
+			fmt.Println()
+		}
+	}
+
+	// // Lookup specific values
+	// for path, deps := range makeDepsMap(v.LookupPath(cue.ParsePath("a.b.c"))) {
+	// 	fmt.Println(path)
+	// 	fmt.Println("  depends on: ")
+	// 	for _, dep := range deps {
+	// 		fmt.Print("    ")
+	// 		fmt.Print(dep.String())
+	// 		fmt.Println()
+	// 	}
+	// }
 }
 
-func walk(path string, val cue.Value) {
-	iter, _ := val.Fields()
-	for iter.Next() {
-		label := iter.Selector()
-		child := iter.Value()
-		fmt.Printf("Field %s.%s (%s)", path, label, child.Kind())
-		fmt.Println()
+func makeDepsMap(val cue.Value) map[string][]cue.Path {
+	dependencyMap := map[string][]cue.Path{}
+	child := val.Value()
+	walkExpr(child, &dependencyMap)
+	return dependencyMap
+}
 
+func walkExpr(child cue.Value, dependencyMap *map[string][]cue.Path) {
+	if op, args := child.Expr(); op != cue.NoOp && len(args) > 0 {
+		pathsByOp(op, child, args, dependencyMap)
+	} else {
 		switch child.Kind() {
 		case cue.StructKind:
-			walk(path+"."+label.String(), child)
+			iter, _ := child.Fields()
+			for iter.Next() {
+				child := iter.Value()
+				walkExpr(child, dependencyMap)
+			}
 		case cue.ListKind:
 			iterList, _ := child.List()
 			for iterList.Next() {
-				indexLabel := iterList.Selector()
-				walk(path+"."+label.String()+"."+indexLabel.String(), iterList.Value())
+				child := iterList.Value()
+				walkExpr(child, dependencyMap)
 			}
 
 		case cue.StringKind, cue.FloatKind, cue.NumberKind, cue.BoolKind, cue.BytesKind, cue.IntKind:
-			if op, args := child.Expr(); op != cue.NoOp && len(args) > 0 {
-				fmt.Println("  depends on ")
-				paths := pathsByOp(op, child, args)
-				for _, path := range paths {
-					fmt.Print("    ")
-					fmt.Print(path)
-					fmt.Println()
-				}
-			} else {
-				value := child.Value()
-				fmt.Println("  literal", value)
-
-			}
-		case cue.BottomKind:
-			fmt.Println("  bottom")
-		case cue.NullKind:
-			fmt.Println("  null")
-		case cue.TopKind:
-			fmt.Println("  top")
+			// do nothing (is literal)
+		case cue.BottomKind, cue.NullKind, cue.TopKind:
+			fmt.Println("Kind with no op not implemented")
+			fmt.Println("  Kind:", child.Kind())
+			fmt.Println("  op:", op)
+			fmt.Println("  args:", args)
+			fmt.Println()
 		default:
-			fmt.Printf("  unkown kind")
+			fmt.Println("unkown kind with no op")
+			fmt.Println("  Kind:", child.Kind())
+			fmt.Println("  op:", op)
+			fmt.Println("  args:", args)
 			fmt.Println()
 		}
 	}
 }
 
-func pathsByOp(op cue.Op, node cue.Value, args []cue.Value) [][]cue.Selector {
-	var paths [][]cue.Selector
+func pathsByOp(op cue.Op, node cue.Value, args []cue.Value, dependencyMap *map[string][]cue.Path) {
 	switch op {
-	case cue.NoOp:
-		fmt.Println("    TODO: cue.NoOp")
-
-	case cue.AndOp:
-		fmt.Println("    TODO: cue.AndOp")
-	case cue.OrOp:
-		fmt.Println("    TODO: cue.OrOp")
-
 	case cue.SelectorOp:
 		_, ref := node.ReferencePath()
-		paths = append(paths, ref.Selectors())
-
-	case cue.IndexOp:
-		fmt.Println("    TODO: cue.IndexOp")
-	case cue.SliceOp:
-		fmt.Println("    TODO: cue.SliceOp")
-	case cue.CallOp:
-		fmt.Println("    TODO: cue.CallOp")
-
-	case cue.BooleanAndOp:
-		fmt.Println("    TODO: cue.BooleanAndOp")
-	case cue.BooleanOrOp:
-		fmt.Println("    TODO: cue.BooleanOrOp")
-
-	case cue.EqualOp:
-		fmt.Println("    TODO: cue.EqualOp")
-	case cue.NotOp:
-		fmt.Println("    TODO: cue.NotOp")
-	case cue.NotEqualOp:
-		fmt.Println("    TODO: cue.NotEqualOp")
-	case cue.LessThanOp:
-		fmt.Println("    TODO: cue.LessThanOp")
-	case cue.LessThanEqualOp:
-		fmt.Println("    TODO: cue.LessThanEqualOp")
-	case cue.GreaterThanOp:
-		fmt.Println("    TODO: cue.GreaterThanOp")
-	case cue.GreaterThanEqualOp:
-		fmt.Println("    TODO: cue.GreaterThanEqualOp")
-
-	case cue.RegexMatchOp:
-		fmt.Println("    TODO: cue.RegexMatchOp")
-	case cue.NotRegexMatchOp:
-		fmt.Println("    TODO: cue.NotRegexMatchOp")
-
-	case cue.AddOp:
+		nodePath := node.Path()
+		(*dependencyMap)[nodePath.String()] = append((*dependencyMap)[nodePath.String()], ref)
+	case
+		cue.AndOp,
+		cue.OrOp,
+		cue.IndexOp,
+		cue.SliceOp,
+		cue.CallOp,
+		cue.BooleanAndOp,
+		cue.BooleanOrOp,
+		cue.EqualOp,
+		cue.NotOp,
+		cue.NotEqualOp,
+		cue.LessThanOp,
+		cue.LessThanEqualOp,
+		cue.GreaterThanOp,
+		cue.GreaterThanEqualOp,
+		cue.RegexMatchOp,
+		cue.NotRegexMatchOp,
+		cue.AddOp,
+		cue.SubtractOp,
+		cue.MultiplyOp,
+		cue.FloatQuotientOp,
+		cue.InterpolationOp:
 		for _, arg := range args {
 			argOp, argArgs := arg.Expr()
 			if argOp != cue.NoOp {
-				argPaths := pathsByOp(argOp, arg, argArgs)
-				paths = append(paths, argPaths...)
+				pathsByOp(argOp, arg, argArgs, dependencyMap)
 			}
 		}
-
-	case cue.SubtractOp:
-		// fmt.Println("cue.SubtractOp")
-	case cue.MultiplyOp:
-		// fmt.Println("cue.MultiplyOp")
-	case cue.FloatQuotientOp:
-		// fmt.Println("cue.FloatQuotientOp")
-	case cue.IntQuotientOp:
-		// fmt.Println("cue.IntQuotientOp")
-	case cue.IntRemainderOp:
-		// fmt.Println("cue.IntRemainderOp")
-	case cue.IntDivideOp:
-		// fmt.Println("cue.IntDivideOp")
-	case cue.IntModuloOp:
-		// fmt.Println("cue.IntModuloOp")
-
-	case cue.InterpolationOp:
-		// fmt.Println("cue.InterpolationOp")
+	case cue.IntQuotientOp, cue.IntRemainderOp, cue.IntDivideOp, cue.IntModuloOp:
+		fmt.Println("OPERATOR NOT IMPLEMENTED", op.String())
 	default:
 		fmt.Printf("  unkown op: %s", op)
 		fmt.Println()
 	}
-	return paths
 }
