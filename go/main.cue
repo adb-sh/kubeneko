@@ -48,12 +48,12 @@ let bucket = #Bucket & {
 foo: "bar"
 
 config: {
-  resources: [
-    myVPC,
-    subnet,
-    bucket
-  ],
+  resources: {
+    Vpc: myVPC,
+    Subnet: subnet,
+    Bucket: bucket
+  },
   foo2: foo
 }
 bar: foo
-bar2: foo + "asd"
+bar2: "yeee" + (foo + "asd" + bar)
