@@ -37,23 +37,24 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// baut eine dependencyMap auf
-	// Beispiel:
-	// { "feld1": {"feld2"}, "feld2": {"feld3"} }
-	// Feld1 ist abhängig von feld2 und feld2 ist abhängig von feld3
+	// build dependencyMap
+	// Example:
+	// { "field1": {"field2"}, "field2": {"field3"} }
+	// field1 changes field2 and field2 changes field3
 	dependencyMap := makeDepsMap(v)
+	fmt.Println()
 	fmt.Println("Dependency Map:")
 	printDependencyMap(dependencyMap)
 	fmt.Println()
 
-	// erweitert die map, sodass alle nested-pfade mit als abängigkeit im parent sind.
-	// Beispiel:
-	// { "feld1": {"feld2"}, "feld2": {"feld3"} }
-	// Feld1 veränder feld2 und feld2 verändert feld3
-	// somit verändert feld1 auch feld3
-	// die funktion macht daraus
-	// { "feld1": {"feld2", "feld3"}, "feld2": {"feld3"} }
-	// Feld1 verändert feld2 und feld3 und feld2 verändert feld3
+	// extends the map so that all nested paths are included in the parent as a dependency.
+	// Example:
+	// { "field1": {"field2"}, "field2": {"field3"} }
+	// field1 changes field2 and field2 changes field3
+	// therfore field1 changes field3 too
+	// the result of this function is:
+	// { "field1": {"field2", "field3"}, "field2": {"field3"} }
+	// field1 changes field2 and field3. field2 changes field3
 	extendedMap := extendDependencyMap(dependencyMap)
 	fmt.Println("Extended Dependency Map:")
 	printDependencyMap(extendedMap)
@@ -71,16 +72,19 @@ func makeDepsMap(rootVal cue.Value) map[string][]string {
 
 func walkExpr(child cue.Value, rootVal cue.Value, dependencyMap *map[string][]string) {
 	if op, args := child.Expr(); op != cue.NoOp && len(args) > 0 {
-		pathsByOp(op, child, args, rootVal, dependencyMap)
+		// if has operator, walk operator
+		walkOperator(op, child, args, rootVal, dependencyMap)
 	} else {
 		switch child.Kind() {
 		case cue.StructKind:
+			// if is struct, walk fields
 			iter, _ := child.Fields()
 			for iter.Next() {
 				child := iter.Value()
 				walkExpr(child, rootVal, dependencyMap)
 			}
 		case cue.ListKind:
+			// if is list, walk elements
 			iterList, _ := child.List()
 			for iterList.Next() {
 				child := iterList.Value()
@@ -95,22 +99,24 @@ func walkExpr(child cue.Value, rootVal cue.Value, dependencyMap *map[string][]st
 			// do nothing (is null)
 
 		case cue.TopKind:
+			// i don't know what to do with this
 			fmt.Println("this Kind without operator is not implemented")
 			fmt.Println("  Kind:", child.Kind())
-			fmt.Println("  op:", op)
+			fmt.Println("  operator:", op)
 			fmt.Println("  args:", args)
 			fmt.Println()
 		default:
-			fmt.Println("unkown kind with no op")
+			fmt.Println("unkown kind with no operator")
 			fmt.Println("  Kind:", child.Kind())
-			fmt.Println("  op:", op)
+			fmt.Println("  operator:", op)
 			fmt.Println("  args:", args)
 			fmt.Println()
+			panic("unkown kind with no operator")
 		}
 	}
 }
 
-func pathsByOp(op cue.Op, node cue.Value, args []cue.Value, rootVal cue.Value, dependencyMap *map[string][]string) {
+func walkOperator(op cue.Op, node cue.Value, args []cue.Value, rootVal cue.Value, dependencyMap *map[string][]string) {
 	switch op {
 	case cue.NoOp:
 		walkExpr(node, rootVal, dependencyMap)
@@ -119,16 +125,13 @@ func pathsByOp(op cue.Op, node cue.Value, args []cue.Value, rootVal cue.Value, d
 		nodePath := node.Path()
 		refSelectors := refPath.Selectors()
 		if len(refSelectors) == 0 {
-
-			// fmt.Println(node.Path().String())
-			// fmt.Println(cue.Dereference(node).Path().String())
-
+			// if no selector, just add the path to the dependency map
 			(*dependencyMap)[node.Path().String()] = append((*dependencyMap)[node.Path().String()], cue.Dereference(node).Path().String())
-
 			return
 		}
 		refLabel := refSelectors[len(refSelectors)-1]
 		if strings.HasPrefix(refLabel.String(), "#") {
+			// if the last selector has prefix #, treat it as a function
 			child := rootVal.LookupPath(refPath)
 			nestedDependencyMap := map[string][]string{}
 			walkExpr(child, rootVal, &nestedDependencyMap)
@@ -142,10 +145,12 @@ func pathsByOp(op cue.Op, node cue.Value, args []cue.Value, rootVal cue.Value, d
 				}
 			}
 		} else if strings.HasPrefix(refLabel.String(), "_") {
+			// if the last selector has prefix _, treat it as a hidden reference
 			child := rootVal.LookupPath(refPath)
 			walkExpr(child, rootVal, dependencyMap)
 			(*dependencyMap)[nodePath.String()] = append((*dependencyMap)[nodePath.String()], refPath.String())
 		} else {
+			// if the last selector has no prefix, treat it as a normal reference
 			(*dependencyMap)[nodePath.String()] = append((*dependencyMap)[nodePath.String()], refPath.String())
 		}
 	case
@@ -174,9 +179,10 @@ func pathsByOp(op cue.Op, node cue.Value, args []cue.Value, rootVal cue.Value, d
 		cue.IntRemainderOp,
 		cue.IntDivideOp,
 		cue.IntModuloOp:
+		// if the operator is one of these, walk the args
 		for _, arg := range args {
 			argOp, argArgs := arg.Expr()
-			pathsByOp(argOp, arg, argArgs, rootVal, dependencyMap)
+			walkOperator(argOp, arg, argArgs, rootVal, dependencyMap)
 		}
 	default:
 		fmt.Printf("  unkown op: %s", op)
