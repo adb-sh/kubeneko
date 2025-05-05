@@ -16,19 +16,16 @@ import (
 }
 
 #Component: {
-  name: string
-  in: _
+  in: {
+    name: string
+    _
+    ...
+  }
   out: #Config
 }
 
-// #Config: {
-//   components?: [...#Component]
-//   resources?: [...#KubeRef]
-// }
-
 #Config: {
-  components?: [Name=string]: #Component & {
-    name: string | Name
-  }
-  resources?: [...#KubeRef]
+  components?: [string]: #Component
+  resources?: [string]: #KubeRef
+  ...
 }
