@@ -43,11 +43,11 @@ import (
     }
     spec: {
       selector: {
-        app: in.name
+        app: _pod.metadata.labels.app
       }
       ports: [{
         port:       in.port
-        targetPort: in.port
+        targetPort: _pod.spec.containers[0].ports[0].containerPort
       }]
     }
   }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 
@@ -8,6 +9,7 @@ import (
 	"cuelang.org/go/cue/cuecontext"
 	"cuelang.org/go/cue/load"
 	"cuelang.org/go/mod/modconfig"
+	"github.com/adb-sh/kubeneko/parser"
 )
 
 func main() {
@@ -34,17 +36,25 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Println(v)
+	res := parser.Parse(v)
 
-	for path, deps := range makeDepsMap(v) {
-		fmt.Println(path)
-		fmt.Println("  depends on: ")
-		for _, dep := range deps {
-			fmt.Print("    ")
-			fmt.Print(dep.String())
-			fmt.Println()
-		}
+	out, err := json.Marshal(res)
+	if err != nil {
+		panic(err)
 	}
+	fmt.Println(string(out))
+
+	// fmt.Println(v)
+
+	// for path, deps := range makeDepsMap(v) {
+	// 	fmt.Println(path)
+	// 	fmt.Println("  depends on: ")
+	// 	for _, dep := range deps {
+	// 		fmt.Print("    ")
+	// 		fmt.Print(dep.String())
+	// 		fmt.Println()
+	// 	}
+	// }
 
 	// // Lookup specific values
 	// for path, deps := range makeDepsMap(v.LookupPath(cue.ParsePath("a.b.c"))) {
