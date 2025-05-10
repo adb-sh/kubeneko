@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 
-	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
 	"cuelang.org/go/cue/load"
 	"cuelang.org/go/mod/modconfig"
@@ -24,6 +23,7 @@ func main() {
 
 	// Load the package from the current directory.
 	// We don't need to specify a Config in this example.
+	// insts := load.Instances([]string{"."}, &load.Config{
 	insts := load.Instances([]string{"./examples/simpleapp"}, &load.Config{
 		Registry: reg,
 	})
@@ -36,6 +36,38 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// // build reverseMap(makeDepsMap(v))
+	// // Example:
+	// // { "field1": {"field2"}, "field2": {"field3"} }
+	// // field1 changes field2 and field2 changes field3
+	// dependencyMap := reverseMap(makeDepsMap(v))
+	// fmt.Println()
+	// fmt.Println("Dependency Map:")
+	// printDependencyMap(dependencyMap, true)
+	// fmt.Println()
+
+	// // extends the map so that all nested paths are included in the parent as a dependency.
+	// // Example:
+	// // { "field1": {"field2"}, "field2": {"field3"} }
+	// // field1 changes field2 and field2 changes field3
+	// // therfore field1 changes field3 too
+	// // the result of this function is:
+	// // { "field1": {"field2", "field3"}, "field2": {"field3"} }
+	// // field1 changes field2 and field3. field2 changes field3
+	// extendedMap := extendDependencyMap(dependencyMap)
+	// fmt.Println("Extended Dependency Map:")
+	// printDependencyMap(extendedMap, true)
+	// fmt.Println()
+
+	// // export dependency map to dot file (Graphviz)
+	// exportToDot(dependencyMap)
+
+	// // List of components, each component has waitFor: A list of pointers to other componentes, this component waits for.
+	// components := makeComponentTree(v.LookupPath(cue.ParsePath("config")), v)
+	// // export componentTree as dot file (Graphviz)
+	// exportComponentsToDot(components)
+
+	fmt.Println("-----using parser-----")
 	res := parser.Parse(v)
 
 	out, err := json.Marshal(res)
@@ -43,114 +75,4 @@ func main() {
 		panic(err)
 	}
 	fmt.Println(string(out))
-
-	// fmt.Println(v)
-
-	// for path, deps := range makeDepsMap(v) {
-	// 	fmt.Println(path)
-	// 	fmt.Println("  depends on: ")
-	// 	for _, dep := range deps {
-	// 		fmt.Print("    ")
-	// 		fmt.Print(dep.String())
-	// 		fmt.Println()
-	// 	}
-	// }
-
-	// // Lookup specific values
-	// for path, deps := range makeDepsMap(v.LookupPath(cue.ParsePath("a.b.c"))) {
-	// 	fmt.Println(path)
-	// 	fmt.Println("  depends on: ")
-	// 	for _, dep := range deps {
-	// 		fmt.Print("    ")
-	// 		fmt.Print(dep.String())
-	// 		fmt.Println()
-	// 	}
-	// }
-}
-
-func makeDepsMap(val cue.Value) map[string][]cue.Path {
-	dependencyMap := map[string][]cue.Path{}
-	child := val.Value()
-	walkExpr(child, &dependencyMap)
-	return dependencyMap
-}
-
-func walkExpr(child cue.Value, dependencyMap *map[string][]cue.Path) {
-	if op, args := child.Expr(); op != cue.NoOp && len(args) > 0 {
-		pathsByOp(op, child, args, dependencyMap)
-	} else {
-		switch child.Kind() {
-		case cue.StructKind:
-			iter, _ := child.Fields()
-			for iter.Next() {
-				child := iter.Value()
-				walkExpr(child, dependencyMap)
-			}
-		case cue.ListKind:
-			iterList, _ := child.List()
-			for iterList.Next() {
-				child := iterList.Value()
-				walkExpr(child, dependencyMap)
-			}
-
-		case cue.StringKind, cue.FloatKind, cue.NumberKind, cue.BoolKind, cue.BytesKind, cue.IntKind:
-			// do nothing (is literal)
-		case cue.BottomKind, cue.NullKind, cue.TopKind:
-			fmt.Println("Kind with no op not implemented")
-			fmt.Println("  Kind:", child.Kind())
-			fmt.Println("  op:", op)
-			fmt.Println("  args:", args)
-			fmt.Println()
-		default:
-			fmt.Println("unkown kind with no op")
-			fmt.Println("  Kind:", child.Kind())
-			fmt.Println("  op:", op)
-			fmt.Println("  args:", args)
-			fmt.Println()
-		}
-	}
-}
-
-func pathsByOp(op cue.Op, node cue.Value, args []cue.Value, dependencyMap *map[string][]cue.Path) {
-	switch op {
-	case cue.NoOp:
-		walkExpr(node, dependencyMap)
-	case cue.SelectorOp:
-		_, ref := node.ReferencePath()
-		nodePath := node.Path()
-		(*dependencyMap)[nodePath.String()] = append((*dependencyMap)[nodePath.String()], ref)
-	case
-		cue.AndOp,
-		cue.OrOp,
-		cue.IndexOp,
-		cue.SliceOp,
-		cue.CallOp,
-		cue.BooleanAndOp,
-		cue.BooleanOrOp,
-		cue.EqualOp,
-		cue.NotOp,
-		cue.NotEqualOp,
-		cue.LessThanOp,
-		cue.LessThanEqualOp,
-		cue.GreaterThanOp,
-		cue.GreaterThanEqualOp,
-		cue.RegexMatchOp,
-		cue.NotRegexMatchOp,
-		cue.AddOp,
-		cue.SubtractOp,
-		cue.MultiplyOp,
-		cue.FloatQuotientOp,
-		cue.InterpolationOp,
-		cue.IntQuotientOp,
-		cue.IntRemainderOp,
-		cue.IntDivideOp,
-		cue.IntModuloOp:
-		for _, arg := range args {
-			argOp, argArgs := arg.Expr()
-			pathsByOp(argOp, arg, argArgs, dependencyMap)
-		}
-	default:
-		fmt.Printf("  unkown op: %s", op)
-		fmt.Println()
-	}
 }

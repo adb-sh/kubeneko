@@ -12,7 +12,7 @@ import (
   port: int
 }
 
-#genSimpleApp: core.#Component & {
+#genSimpleApp: S=core.#Component & {
   in: #SimpleAppInput
 
   _pod: v1.#Pod & {
@@ -78,12 +78,59 @@ import (
       }]
     }
   }
+}
+
+
+#PostgresDBInput: {
+  name: string
+  image: string
+  port: int
+}
+
+#genPostgresDB: core.#Component & {
+  in: #PostgresDBInput
 
   out: {
-    resources: [
-      _pod,
-      _service,
-      _ingress,
-    ]
+    resources: {
+      pod: v1.#Pod & {
+        kind: "Pod"
+        apiVersion: "v1"
+        metadata: {
+          name: in.name
+          labels: {
+            app: in.name
+          }
+        }
+        spec: {
+          containers: [{
+            name:  "my-container"
+            image: in.image
+            ports: [{
+              containerPort: in.port
+            }]
+          }]
+        }
+      },
+      service: v1.#Service & {
+        kind: "Service"
+        apiVersion: "v1"
+        metadata: {
+          name: in.name
+        }
+        spec: {
+          selector: {
+            app: in.name
+          }
+          ports: [{
+            port:       in.port
+            targetPort: in.port
+          }]
+        }
+      },
+    },
+    db: {
+      host: resources.service.metadata.name
+      port: resources.service.spec.ports[0].port
+    }
   }
 }
