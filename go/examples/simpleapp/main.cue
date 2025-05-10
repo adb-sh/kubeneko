@@ -1,9 +1,11 @@
 package simpleapp
 
-import "github.com/adb-sh/kubeneko/core"
+import (
+  "k8s.io/api/core/v1"
+  "github.com/adb-sh/kubeneko/core"
+)
 
-
-config: core.#Config & {
+config: out: core.#Config & {
   components: {
     app1: #genSimpleApp & {
       in: {
@@ -12,12 +14,12 @@ config: core.#Config & {
         port: 80
       }
     },
-    // app2: #genSimpleApp & {
-    //   in: {
-    //     name: "whoami"
-    //     image: "traefik/whoami"
-    //     port: app1.out.resources.pod.spec.containers[0].ports[0].containerPort
-    //   }
-    // }
+    app2: #genSimpleApp & {
+      in: {
+        name: "whoami"
+        image: "traefik/whoami"
+        port: app1.out.resources.pod.spec.containers[0].ports[0].containerPort
+      },
+    }
   }
 }

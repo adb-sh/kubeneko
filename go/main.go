@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 
+	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
 	"cuelang.org/go/cue/load"
 	"cuelang.org/go/mod/modconfig"
@@ -34,14 +35,14 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// build dependencyMap
+	// build reverseMap(makeDepsMap(v))
 	// Example:
 	// { "field1": {"field2"}, "field2": {"field3"} }
 	// field1 changes field2 and field2 changes field3
-	dependencyMap := makeDepsMap(v)
+	dependencyMap := reverseMap(makeDepsMap(v))
 	fmt.Println()
 	fmt.Println("Dependency Map:")
-	printDependencyMap(dependencyMap)
+	printDependencyMap(dependencyMap, true)
 	fmt.Println()
 
 	// extends the map so that all nested paths are included in the parent as a dependency.
@@ -54,9 +55,14 @@ func main() {
 	// field1 changes field2 and field3. field2 changes field3
 	extendedMap := extendDependencyMap(dependencyMap)
 	fmt.Println("Extended Dependency Map:")
-	printDependencyMap(extendedMap)
+	printDependencyMap(extendedMap, true)
 	fmt.Println()
 
 	// export dependency map to dot file (Graphviz)
 	exportToDot(dependencyMap)
+
+	// List of components, each component has waitFor: A list of pointers to other componentes, this component waits for.
+	components := makeComponentTree(v.LookupPath(cue.ParsePath("config")), v)
+	// export componentTree as dot file (Graphviz)
+	exportComponentsToDot(components)
 }

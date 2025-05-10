@@ -12,7 +12,7 @@ import (
 func makeDepsMap(rootVal cue.Value) map[string][]string {
 	dependencyMap := map[string][]string{}
 	walkExpr(rootVal, rootVal, &dependencyMap)
-	return reverseMap(dependencyMap)
+	return dependencyMap
 }
 
 func walkExpr(child cue.Value, rootVal cue.Value, dependencyMap *map[string][]string) {
@@ -257,10 +257,14 @@ func reverseMap(original map[string][]string) map[string][]string {
 	return reversed
 }
 
-func printDependencyMap(dependencyMap map[string][]string) {
+func printDependencyMap(dependencyMap map[string][]string, reveresed bool) {
 	for path, deps := range dependencyMap {
 		fmt.Println(path)
-		fmt.Println("  depends on: ")
+		if reveresed {
+			fmt.Println("  used by: ")
+		} else {
+			fmt.Println("  uses: ")
+		}
 		for _, dep := range deps {
 			fmt.Print("  - ")
 			fmt.Print(dep)

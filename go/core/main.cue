@@ -12,13 +12,13 @@ import (
     name: string
   }
   // Allow any other fields
-  ...
+  spec: _
+  status: _
 }
 
 #Component: {
   in: {
     name: string
-    _
     ...
   }
   out: #Config
