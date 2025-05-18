@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 
@@ -68,11 +67,11 @@ func main() {
 	// exportComponentsToDot(components)
 
 	fmt.Println("-----using parser-----")
-	res := parser.Parse(v)
+	parser.Parse(v)
 
-	out, err := json.Marshal(res)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(string(out))
+	// out, err := json.Marshal(res)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// fmt.Println(string(out))
 }

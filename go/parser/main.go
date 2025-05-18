@@ -108,22 +108,17 @@ func walkConfig(conf core.Config, inst cue.Value, resources *[]Resource) {
 
 func resolveRefs(resources []Resource) {
 	for _, res := range resources {
+		fmt.Println("\n# resource", res.Manifest.Metadata.Name, res.Manifest.Kind, res.Value.Path())
 		for _, dep := range res.Deps {
 			for _, ref := range dep.Refs {
-				fmt.Println("remote", res.Manifest.Metadata.Name, res.Manifest.Kind, res.Value.Path())
-				// fmt.Println("check for", ref.From.Path())
+				fmt.Println("ref", ref.To.Path(), "-->", ref.From.Path())
 				for _, candidate := range resources {
-					// candidate.Value.Source()
+					fmt.Println("candidate", candidate.Value.Path())
 					if candidate.Value == res.Value {
 						continue // skip self
 					}
 
-					// TODO: check if `res.Value`` is a child of `candidate.Value`
-
-					// candidate.Value.Subsume()
-					// v := candidate.Value.LookupPath(ref.From.Path())
-					// fmt.Println("compare", v)
-					// candidate.Value.Path()
+					// TODO: check if `res.Value` is a child of `candidate.Value`
 
 					if searchValueTree(candidate.Value, ref.From) {
 						// ref.Resource = *candidate
@@ -140,11 +135,9 @@ func searchValueTree(root cue.Value, target cue.Value) bool {
 	for it.Next() {
 		v := it.Value()
 		if v.Equals(target) {
+			fmt.Println(v.Path(), target.Path())
 			return true
 		}
-		// if err := v.Subsume(target); err == nil {
-		// 	return true
-		// }
 		if searchValueTree(v, target) {
 			return true
 		}
